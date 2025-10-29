@@ -2,8 +2,10 @@ import asyncio
 import re
 from contextlib import suppress
 from queue import Empty
+from typing import Optional
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 import core
@@ -17,15 +19,40 @@ class DiscordBot(commands.Bot):
     def __init__(self, queue):
         intents = discord.Intents.default()
         intents.message_content = True
-        super().__init__(command_prefix="!", intents=intents)
+        super().__init__(command_prefix=commands.when_mentioned_or("!"), intents=intents)
 
         self.new_items_queue = queue
-        self.queue_task = None
-        self.version_task = None
+        self.queue_task: Optional[asyncio.Task] = None
+        self.version_task: Optional[asyncio.Task] = None
+        self.command_guild: Optional[discord.Object] = self._load_command_guild()
+
+    def _load_command_guild(self) -> Optional[discord.Object]:
+        guild_id = db.get_parameter("discord_guild_id")
+        if not guild_id:
+            return None
+        try:
+            guild_object = discord.Object(id=int(guild_id))
+            logger.info("Restricting Discord slash commands to guild %s", guild_id)
+            return guild_object
+        except ValueError:
+            logger.error("Invalid Discord guild ID configured: %s", guild_id)
+            return None
 
     async def setup_hook(self) -> None:
         self.queue_task = asyncio.create_task(self.process_queue())
         self.version_task = asyncio.create_task(self.version_checker())
+        await self.sync_application_commands()
+
+    async def sync_application_commands(self) -> None:
+        try:
+            if self.command_guild is not None:
+                await self.tree.sync(guild=self.command_guild)
+                logger.info("Discord application commands synced for guild %s", self.command_guild.id)
+            else:
+                await self.tree.sync()
+                logger.info("Discord application commands synced globally")
+        except Exception as e:
+            logger.error("Failed to sync Discord application commands: %s", e, exc_info=True)
 
     async def close(self) -> None:
         for task in (self.queue_task, self.version_task):
@@ -62,8 +89,10 @@ class DiscordBot(commands.Bot):
             try:
                 is_up_to_date, current_version, latest_version, github_url = core.check_version()
                 if not is_up_to_date:
-                    message = (f"Version {latest_version} is now available. "
-                               f"Current version: {current_version}.")
+                    message = (
+                        f"Version {latest_version} is now available. "
+                        f"Current version: {current_version}."
+                    )
                     await self.send_simple_message(message, github_url, "Open GitHub")
             except Exception as e:
                 logger.error("Error while checking version for Discord notifications: %s", e, exc_info=True)
@@ -158,113 +187,139 @@ class DiscordBot(commands.Bot):
 def create_bot(queue):
     bot = DiscordBot(queue)
 
-    @bot.command(name="hello")
-    async def hello(ctx: commands.Context):
+    def slash_command(*args, **kwargs):
+        if bot.command_guild is not None:
+            kwargs.setdefault("guild", bot.command_guild)
+        return bot.tree.command(*args, **kwargs)
+
+    @slash_command(name="hello", description="Check if the Vinted Notifications bot is running")
+    async def hello(interaction: discord.Interaction):
         try:
             version = db.get_parameter("version") or "unknown"
-            await ctx.reply(f"Hello {ctx.author.display_name}! Vinted-Notifications is running version {version}.")
+            await interaction.response.send_message(
+                f"Hello {interaction.user.display_name}! Vinted-Notifications is running version {version}.",
+                ephemeral=True,
+            )
         except Exception as e:
             logger.error("Error in Discord hello command: %s", e, exc_info=True)
-            await ctx.reply("An error occurred. Please try again later.")
+            await _send_error(interaction)
 
-    @bot.command(name="add_query")
-    async def add_query(ctx: commands.Context, *, query: str = None):
-        if not query:
-            await ctx.reply("No query provided. Usage: !add_query <url> or name=url")
-            return
+    @slash_command(name="add_query", description="Add a new Vinted search query")
+    @app_commands.describe(query_url="Full Vinted search URL", name="Optional display name for the query")
+    async def add_query(interaction: discord.Interaction, query_url: str, name: Optional[str] = None):
+        await interaction.response.defer(ephemeral=True, thinking=True)
         try:
-            name = None
-            url = query
-            if "=http" in query:
-                name, url = query.split("=", 1)
-            message, is_new_query = core.process_query(url, name if name else None)
+            message, is_new_query = core.process_query(query_url, name if name else None)
             if is_new_query:
                 query_list = core.get_formatted_query_list()
-                await ctx.reply(f"{message}\nCurrent queries:\n{query_list}")
+                response = f"{message}\nCurrent queries:\n{query_list}"
             else:
-                await ctx.reply(message)
+                response = message
+            await interaction.followup.send(response, ephemeral=True)
         except Exception as e:
             logger.error("Error adding query from Discord: %s", e, exc_info=True)
-            await ctx.reply("An error occurred while adding the query.")
+            await _send_error(interaction)
 
-    @bot.command(name="remove_query")
-    async def remove_query(ctx: commands.Context, query_number: str = None):
-        if not query_number:
-            await ctx.reply("No number provided. Usage: !remove_query <number|all>")
-            return
+    @slash_command(name="remove_query", description="Remove a query by its number or remove all queries")
+    @app_commands.describe(selector="Enter the query number from /queries or use 'all'")
+    async def remove_query(interaction: discord.Interaction, selector: str):
+        await interaction.response.defer(ephemeral=True, thinking=True)
         try:
-            message, success = core.process_remove_query(query_number)
-            if success and query_number != "all":
+            message, success = core.process_remove_query(selector)
+            if success and selector.lower() != "all":
                 query_list = core.get_formatted_query_list()
-                await ctx.reply(f"{message}\nCurrent queries:\n{query_list}")
+                response = f"{message}\nCurrent queries:\n{query_list}"
             else:
-                await ctx.reply(message)
+                response = message
+            await interaction.followup.send(response, ephemeral=True)
         except Exception as e:
             logger.error("Error removing query from Discord: %s", e, exc_info=True)
-            await ctx.reply("An error occurred while removing the query.")
+            await _send_error(interaction)
 
-    @bot.command(name="queries")
-    async def queries(ctx: commands.Context):
+    @slash_command(name="queries", description="List configured Vinted queries")
+    async def queries(interaction: discord.Interaction):
         try:
             query_list = core.get_formatted_query_list()
-            await ctx.reply(f"Current queries:\n{query_list}")
+            if not query_list.strip():
+                query_list = "No queries configured yet. Use /add_query to add one."
+            await interaction.response.send_message(
+                f"Current queries:\n{query_list}", ephemeral=True
+            )
         except Exception as e:
             logger.error("Error retrieving queries from Discord: %s", e, exc_info=True)
-            await ctx.reply("An error occurred while retrieving the queries.")
+            await _send_error(interaction)
 
-    @bot.command(name="clear_allowlist")
-    async def clear_allowlist(ctx: commands.Context):
+    @slash_command(name="clear_allowlist", description="Allow items from all countries")
+    async def clear_allowlist(interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True, thinking=True)
         try:
             db.clear_allowlist()
-            await ctx.reply("Allowlist cleared. All countries are allowed.")
+            await interaction.followup.send(
+                "Allowlist cleared. All countries are allowed.", ephemeral=True
+            )
         except Exception as e:
             logger.error("Error clearing allowlist from Discord: %s", e, exc_info=True)
-            await ctx.reply("An error occurred while clearing the allowlist.")
+            await _send_error(interaction)
 
-    @bot.command(name="add_country")
-    async def add_country(ctx: commands.Context, *, country: str = None):
-        if not country:
-            await ctx.reply("No country provided. Usage: !add_country <country name>")
-            return
+    @slash_command(name="add_country", description="Add a country to the allowlist")
+    @app_commands.describe(country="Country name or code to allow")
+    async def add_country(interaction: discord.Interaction, country: str):
+        await interaction.response.defer(ephemeral=True, thinking=True)
         try:
             message, country_list = core.process_add_country(country)
-            await ctx.reply(f"{message} Current allowlist: {country_list}")
+            await interaction.followup.send(
+                f"{message} Current allowlist: {country_list}", ephemeral=True
+            )
         except Exception as e:
             logger.error("Error adding country from Discord: %s", e, exc_info=True)
-            await ctx.reply("An error occurred while adding the country to the allowlist.")
+            await _send_error(interaction)
 
-    @bot.command(name="remove_country")
-    async def remove_country(ctx: commands.Context, *, country: str = None):
-        if not country:
-            await ctx.reply("No country provided. Usage: !remove_country <country name>")
-            return
+    @slash_command(name="remove_country", description="Remove a country from the allowlist")
+    @app_commands.describe(country="Country name or code to remove")
+    async def remove_country(interaction: discord.Interaction, country: str):
+        await interaction.response.defer(ephemeral=True, thinking=True)
         try:
             message, country_list = core.process_remove_country(country)
-            await ctx.reply(f"{message} Current allowlist: {country_list}")
+            await interaction.followup.send(
+                f"{message} Current allowlist: {country_list}", ephemeral=True
+            )
         except Exception as e:
             logger.error("Error removing country from Discord: %s", e, exc_info=True)
-            await ctx.reply("An error occurred while removing the country from the allowlist.")
+            await _send_error(interaction)
 
-    @bot.command(name="allowlist")
-    async def allowlist(ctx: commands.Context):
+    @slash_command(name="allowlist", description="Display the active allowlist")
+    async def allowlist(interaction: discord.Interaction):
         try:
             countries = db.get_allowlist()
             if countries == 0:
-                await ctx.reply("No allowlist set. All countries are allowed.")
+                message = "No allowlist set. All countries are allowed."
             else:
-                await ctx.reply(f"Current allowlist: {countries}")
+                message = f"Current allowlist: {countries}"
+            await interaction.response.send_message(message, ephemeral=True)
         except Exception as e:
             logger.error("Error retrieving allowlist from Discord: %s", e, exc_info=True)
-            await ctx.reply("An error occurred while retrieving the allowlist.")
+            await _send_error(interaction)
 
-    @bot.event
-    async def on_command_error(ctx: commands.Context, error: commands.CommandError):
-        if isinstance(error, commands.CommandNotFound):
-            return
-        logger.error("Unhandled Discord command error: %s", error, exc_info=True)
-        await ctx.reply("An unexpected error occurred while processing the command.")
+    @bot.tree.error
+    async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+        logger.error("Unhandled Discord slash command error: %s", error, exc_info=True)
+        await _send_error(interaction)
 
     return bot
+
+
+async def _send_error(interaction: discord.Interaction) -> None:
+    try:
+        if interaction.response.is_done():
+            await interaction.followup.send(
+                "An unexpected error occurred. Please try again later.", ephemeral=True
+            )
+        else:
+            await interaction.response.send_message(
+                "An unexpected error occurred. Please try again later.", ephemeral=True
+            )
+    except Exception as followup_error:
+        logger.error("Failed to send error response on Discord: %s", followup_error, exc_info=True)
 
 
 async def run_discord_bot(queue):

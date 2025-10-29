@@ -93,44 +93,45 @@ Follow these steps to connect the built-in Discord bot and receive notifications
 1. **Create the bot in the Discord Developer Portal**
    1. Go to [https://discord.com/developers/applications](https://discord.com/developers/applications) and create a new application.
    2. Open the **Bot** tab, click **Add Bot**, then copy the **token** – you will paste it into the Web UI later.
-   3. Under **Privileged Gateway Intents**, enable **Message Content Intent** (required for handling text commands).
+   3. Under **Privileged Gateway Intents**, enable **Message Content Intent** only if you also plan to react to plain text messages. Slash commands work without it, but leaving it enabled does not hurt.
 
 2. **Invite the bot to your server**
-   1. In the **OAuth2 → URL Generator** tab, select the `bot` scope.
+   1. In the **OAuth2 → URL Generator** tab, select both the `bot` and `applications.commands` scopes so the slash commands can be registered.
    2. Grant at least the **Send Messages** and **Embed Links** permissions.
    3. Open the generated URL in your browser and invite the bot to the server/channel where you want updates.
 
-3. **Collect the Discord channel ID**
+3. **Collect the Discord channel and optional guild IDs**
    1. In Discord, open **User Settings → Advanced** and enable **Developer Mode**.
    2. Right-click the channel where notifications should appear and choose **Copy Channel ID**.
+   3. (Optional) Right-click the server name and choose **Copy Server ID**. Supplying it lets the bot register slash commands instantly for that server instead of waiting for Discord's global sync.
 
 4. **Configure the bot in the Web UI**
    1. Start the application with `python vinted_notifications.py` and open the Web UI.
    2. Navigate to **Configuration → Discord Bot**.
-   3. Paste the bot token and channel ID into the corresponding fields.
+   3. Paste the bot token, channel ID, and (optionally) the guild ID into the corresponding fields.
    4. Toggle **Auto Start** if you want the Discord worker to launch automatically next time.
    5. Click **Save** at the bottom of the configuration page.
 
 5. **Start or stop the Discord worker**
-   - The Discord worker starts automatically when both the token and channel ID are present and the **Discord** toggle is enabled. You can switch it on or off at any time from the Configuration page.
+   - The Discord worker starts automatically when the token and channel ID are present and the **Discord** toggle is enabled. You can switch it on or off at any time from the Configuration page.
    - If you prefer managing it manually, set `discord_process_running` to `True`/`False` directly in the database parameters table (e.g. via the built-in Web UI configuration form).
 
 6. **Verify the connection**
    - The logs in the Web UI should show `Discord bot process started` when the worker connects successfully.
-   - In Discord, use `!hello` to confirm the bot can respond in the selected channel.
+   - In Discord, use `/hello` to confirm the bot can respond in the selected channel. If commands do not appear immediately, double-check the guild ID or wait for Discord to propagate global commands (up to 1 hour).
 
 ### Discord Commands
 
-Once the Discord worker is running, it exposes the following text commands (prefixed with `!`) in the configured channel:
+Once the Discord worker is running, it exposes the following slash commands in the configured channel (responses are ephemeral so they only appear to the caller):
 
-- `!hello` – Check if the bot is online and view the current application version
-- `!add_query <url>` – Add a search query to monitor (`name=url` also supported)
-- `!remove_query <number|all>` – Remove a specific query or clear them all
-- `!queries` – List all active queries
-- `!add_country <country>` – Add a country to the allowlist
-- `!remove_country <country>` – Remove a country from the allowlist
-- `!clear_allowlist` – Remove all countries from the allowlist
-- `!allowlist` – Show the current allowlist
+- `/hello` – Check if the bot is online and view the current application version
+- `/add_query query_url [name]` – Add a search query to monitor (the optional `name` becomes the friendly label)
+- `/remove_query selector` – Remove a specific query by its number or use `all` to clear them
+- `/queries` – List all active queries
+- `/add_country country` – Add a country to the allowlist
+- `/remove_country country` – Remove a country from the allowlist
+- `/clear_allowlist` – Remove every country from the allowlist
+- `/allowlist` – Show the current allowlist (or indicate that all countries are allowed)
 
 ### Query Examples
 
@@ -149,8 +150,13 @@ at [http://localhost:8001](http://localhost:8001).
 
 ### Proxy Support
 
-The application supports using proxies to avoid rate limits. Those are configured in the configuration tab of the Web
-UI.
+The application supports multiple proxy strategies, all configurable from the Web UI:
+
+- **Proxy List** – Provide a semicolon-separated list of proxies (`http://ip:port` or `ip:port`).
+- **Proxy List Link** – Point to a URL that returns a newline-separated list of proxies. The app will download and rotate through them automatically.
+- **Webshare Rotating Proxy** – Toggle the dedicated Webshare section and supply your username, password, host, port, and protocol (defaults point to `proxy.webshare.io:80`). The integration forwards every request through Webshare's rotating gateway so you benefit from a new exit node on each call without maintaining a long proxy list.
+
+When Webshare is enabled it takes priority over the static lists. You can disable it at any time to fall back to the custom proxy pools.
 
 ### Custom Notification Format
 

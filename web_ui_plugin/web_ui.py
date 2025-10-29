@@ -247,6 +247,13 @@ def update_config():
     db.ensure_parameter('discord_enabled', 'False')
     db.ensure_parameter('discord_token', '')
     db.ensure_parameter('discord_channel_id', '')
+    db.ensure_parameter('discord_guild_id', '')
+    db.ensure_parameter('webshare_enabled', 'False')
+    db.ensure_parameter('webshare_username', '')
+    db.ensure_parameter('webshare_password', '')
+    db.ensure_parameter('webshare_host', 'proxy.webshare.io')
+    db.ensure_parameter('webshare_port', '80')
+    db.ensure_parameter('webshare_protocol', 'http')
 
     # Update Telegram parameters
     telegram_enabled = 'telegram_enabled' in request.form
@@ -259,6 +266,7 @@ def update_config():
     db.set_parameter('discord_enabled', str(discord_enabled))
     db.set_parameter('discord_token', request.form.get('discord_token', ''))
     db.set_parameter('discord_channel_id', request.form.get('discord_channel_id', ''))
+    db.set_parameter('discord_guild_id', request.form.get('discord_guild_id', ''))
 
     # Update RSS parameters
     rss_enabled = 'rss_enabled' in request.form
@@ -276,6 +284,14 @@ def update_config():
     db.set_parameter('proxy_list', request.form.get('proxy_list', ''))
     db.set_parameter('proxy_list_link', request.form.get('proxy_list_link', ''))
 
+    webshare_enabled = 'webshare_enabled' in request.form
+    db.set_parameter('webshare_enabled', str(webshare_enabled))
+    db.set_parameter('webshare_username', request.form.get('webshare_username', '').strip())
+    db.set_parameter('webshare_password', request.form.get('webshare_password', '').strip())
+    db.set_parameter('webshare_host', request.form.get('webshare_host', 'proxy.webshare.io') or 'proxy.webshare.io')
+    db.set_parameter('webshare_port', request.form.get('webshare_port', '80') or '80')
+    db.set_parameter('webshare_protocol', request.form.get('webshare_protocol', 'http') or 'http')
+
     # Reset proxy cache to force refresh on next use
     db.set_parameter('last_proxy_check_time', "1")
     logger.info("Proxy settings updated, cache reset")
@@ -290,6 +306,7 @@ def control_process(process_name, action):
     db.ensure_parameter('discord_enabled', 'False')
     db.ensure_parameter('discord_token', '')
     db.ensure_parameter('discord_channel_id', '')
+    db.ensure_parameter('discord_guild_id', '')
 
     if process_name not in ['telegram', 'rss', 'discord']:
         return jsonify({'status': 'error', 'message': 'Invalid process name'})
