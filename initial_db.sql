@@ -52,6 +52,11 @@ VALUES ('telegram_enabled', 'False'),
        ('telegram_chat_id', ''),
        ('telegram_process_running', 'False'),
 
+       ('discord_enabled', 'False'),
+       ('discord_token', ''),
+       ('discord_channel_id', ''),
+       ('discord_process_running', 'False'),
+
        ('rss_enabled', 'False'),
        ('rss_port', '8080'),
        ('rss_max_items', '100'),
