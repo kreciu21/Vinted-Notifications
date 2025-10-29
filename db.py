@@ -267,6 +267,20 @@ def set_parameter(key, value):
             conn.close()
 
 
+def ensure_parameter(key, default_value):
+    conn = None
+    try:
+        conn = sqlite3.connect("vinted_notifications.db")
+        cursor = conn.cursor()
+        cursor.execute("INSERT OR IGNORE INTO parameters (key, value) VALUES (?, ?)", (key, default_value))
+        conn.commit()
+    except Exception:
+        print_exc()
+    finally:
+        if conn:
+            conn.close()
+
+
 def get_all_parameters():
     conn = None
     try:

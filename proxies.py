@@ -15,6 +15,9 @@ _PROXY_CACHE = None
 _PROXY_CACHE_INITIALIZED = False
 _SINGLE_PROXY = None
 
+# Flag to avoid spamming warnings when Webshare credentials are missing
+_WEBSHARE_WARNING_EMITTED = False
+
 # URL to test proxies against
 _TEST_URL = "https://www.vinted.fr/"
 _TEST_TIMEOUT = 2  # seconds
@@ -22,6 +25,38 @@ _TEST_TIMEOUT = 2  # seconds
 MAX_PROXY_WORKERS = 10
 # Time interval in seconds after which proxies should be rechecked (6 hours)
 PROXY_RECHECK_INTERVAL = 6 * 60 * 60
+
+
+def _get_webshare_proxy(db_module) -> Optional[str]:
+    """Build a Webshare rotating proxy URL if the integration is enabled."""
+    global _WEBSHARE_WARNING_EMITTED
+    if db_module.get_parameter("webshare_enabled") != "True":
+        _WEBSHARE_WARNING_EMITTED = False
+        return None
+
+    username = (db_module.get_parameter("webshare_username") or "").strip()
+    password = (db_module.get_parameter("webshare_password") or "").strip()
+    host = (db_module.get_parameter("webshare_host") or "proxy.webshare.io").strip() or "proxy.webshare.io"
+    port = (db_module.get_parameter("webshare_port") or "80").strip() or "80"
+    protocol = (db_module.get_parameter("webshare_protocol") or "http").strip() or "http"
+
+    if not username or not password:
+        if not _WEBSHARE_WARNING_EMITTED:
+            logger.warning("Webshare proxy enabled but username or password is missing.")
+            _WEBSHARE_WARNING_EMITTED = True
+        return None
+
+    # Normalise the port to a numeric value if possible
+    try:
+        port_int = int(port)
+        port = str(port_int)
+    except ValueError:
+        logger.warning("Invalid Webshare port '%s'. Falling back to 80.", port)
+        port = "80"
+
+    _WEBSHARE_WARNING_EMITTED = False
+    return f"{protocol}://{username}:{password}@{host}:{port}"
+
 
 def fetch_proxies_from_link(url: str) -> List[str]:
     """
@@ -93,6 +128,10 @@ def get_random_proxy() -> Optional[str]:
 
     # Import db here to avoid circular imports
     import db
+
+    webshare_proxy = _get_webshare_proxy(db)
+    if webshare_proxy:
+        return webshare_proxy
 
     current_time = time.time()
 
