@@ -51,7 +51,7 @@
                         </div>
                     </div>
                     <div class="row mb-4">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div class="card h-100">
                                 <div class="card-header d-flex align-items-center">
                                     <i class="bi bi-telegram me-2 text-info"></i>
@@ -88,7 +88,49 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <div class="card h-100">
+                                <div class="card-header d-flex align-items-center">
+                                    <i class="bi bi-discord me-2 text-info"></i>
+                                    <h5 class="card-title mb-0">Discord Bot</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <div class="form-check form-switch">
+                                            {% if params.discord_enabled == 'True' %}
+                                            <input class="form-check-input" type="checkbox" id="discord_enabled"
+                                                   name="discord_enabled" checked>
+                                            {% else %}
+                                            <input class="form-check-input" type="checkbox" id="discord_enabled"
+                                                   name="discord_enabled">
+                                            {% endif %}
+                                            <label class="form-check-label" for="discord_enabled">
+                                                Auto Start
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="discord_token" class="form-label">Bot Token</label>
+                                        <input type="text" class="form-control" id="discord_token"
+                                               name="discord_token" value="{{ params.discord_token }}">
+                                        <small class="form-text text-muted">Create a bot in the Discord Developer Portal and copy its token</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="discord_channel_id" class="form-label">Channel ID</label>
+                                        <input type="text" class="form-control" id="discord_channel_id"
+                                               name="discord_channel_id" value="{{ params.discord_channel_id }}">
+                                        <small class="form-text text-muted">Enable Developer Mode in Discord, then right-click the channel and choose "Copy ID"</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="discord_guild_id" class="form-label">Guild ID (optional)</label>
+                                        <input type="text" class="form-control" id="discord_guild_id"
+                                               name="discord_guild_id" value="{{ params.discord_guild_id }}">
+                                        <small class="form-text text-muted">Set this to register slash commands instantly in a single server. Leave empty to register globally.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
                             <div class="card h-100">
                                 <div class="card-header d-flex align-items-center">
                                     <i class="bi bi-rss me-2 text-info"></i>
@@ -168,6 +210,56 @@
                                                 <small class="form-text text-muted">URL to fetch proxies from (one proxy
                                                     per line)</small>
                                             </div>
+                                            <hr class="my-4">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="bi bi-cloud-download me-2 text-info"></i>
+                                                <h6 class="mb-0">Webshare Rotating Proxy</h6>
+                                            </div>
+                                            <div class="form-check form-switch mb-3">
+                                                {% if params.webshare_enabled == 'True' %}
+                                                <input class="form-check-input" type="checkbox" id="webshare_enabled" name="webshare_enabled" checked>
+                                                {% else %}
+                                                <input class="form-check-input" type="checkbox" id="webshare_enabled" name="webshare_enabled">
+                                                {% endif %}
+                                                <label class="form-check-label" for="webshare_enabled">Enable Webshare rotating endpoint</label>
+                                                <small class="form-text text-muted d-block">Automatically route requests through Webshare's rotating proxy gateway.</small>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label for="webshare_username" class="form-label">Username</label>
+                                                        <input type="text" class="form-control" id="webshare_username" name="webshare_username" value="{{ params.webshare_username }}">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label for="webshare_password" class="form-label">Password</label>
+                                                        <input type="password" class="form-control" id="webshare_password" name="webshare_password" value="{{ params.webshare_password }}">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label for="webshare_host" class="form-label">Host</label>
+                                                        <input type="text" class="form-control" id="webshare_host" name="webshare_host" value="{{ params.webshare_host }}">
+                                                        <small class="form-text text-muted">Default: proxy.webshare.io</small>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="mb-3">
+                                                        <label for="webshare_port" class="form-label">Port</label>
+                                                        <input type="number" class="form-control" id="webshare_port" name="webshare_port" value="{{ params.webshare_port }}">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="mb-3">
+                                                        <label for="webshare_protocol" class="form-label">Protocol</label>
+                                                        <input type="text" class="form-control" id="webshare_protocol" name="webshare_protocol" value="{{ params.webshare_protocol }}">
+                                                        <small class="form-text text-muted">Typically http or https</small>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -194,7 +286,7 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div>
                                 <h6 class="mb-0">Telegram Bot</h6>
@@ -213,7 +305,23 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h6 class="mb-0">Discord Bot</h6>
+                                <small class="text-muted process-status" data-process="discord">Checking status...</small>
+                            </div>
+                            <div>
+                                <button class="btn btn-success process-control" data-process="discord" data-action="start">
+                                    <i class="bi bi-play-fill"></i> Start
+                                </button>
+                                <button class="btn btn-danger process-control" data-process="discord" data-action="stop">
+                                    <i class="bi bi-stop-fill"></i> Stop
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div>
                                 <h6 class="mb-0">RSS Feed</h6>
@@ -302,6 +410,8 @@
                     // Update status text
                     document.querySelector('.process-status[data-process="telegram"]').textContent =
                         data.telegram ? 'Running' : 'Stopped';
+                    document.querySelector('.process-status[data-process="discord"]').textContent =
+                        data.discord ? 'Running' : 'Stopped';
                     document.querySelector('.process-status[data-process="rss"]').textContent =
                         data.rss ? 'Running' : 'Stopped';
 
@@ -310,6 +420,10 @@
                         data.telegram ? 'none' : 'inline-block';
                     document.querySelector('.process-control[data-process="telegram"][data-action="stop"]').style.display =
                         data.telegram ? 'inline-block' : 'none';
+                    document.querySelector('.process-control[data-process="discord"][data-action="start"]').style.display =
+                        data.discord ? 'none' : 'inline-block';
+                    document.querySelector('.process-control[data-process="discord"][data-action="stop"]').style.display =
+                        data.discord ? 'inline-block' : 'none';
                     document.querySelector('.process-control[data-process="rss"][data-action="start"]').style.display =
                         data.rss ? 'none' : 'inline-block';
                     document.querySelector('.process-control[data-process="rss"][data-action="stop"]').style.display =
