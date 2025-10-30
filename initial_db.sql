@@ -47,10 +47,11 @@ CREATE TABLE IF NOT EXISTS parameters
    ============================ */
 
 INSERT INTO parameters (key, value)
-VALUES ('telegram_enabled', 'False'),
-       ('telegram_token', ''),
-       ('telegram_chat_id', ''),
-       ('telegram_process_running', 'False'),
+VALUES ('discord_enabled', 'False'),
+       ('discord_token', ''),
+       ('discord_channel_id', ''),
+       ('discord_guild_id', ''),
+       ('discord_process_running', 'False'),
 
        ('rss_enabled', 'False'),
        ('rss_port', '8080'),
@@ -66,4 +67,10 @@ VALUES ('telegram_enabled', 'False'),
        ('proxy_list', ''),
        ('proxy_list_link', ''),
        ('check_proxies', 'False'),
+       ('webshare_enabled', 'False'),
+       ('webshare_username', ''),
+       ('webshare_password', ''),
+       ('webshare_host', 'proxy.webshare.io'),
+       ('webshare_port', '80'),
+       ('webshare_protocol', 'http'),
        ('last_proxy_check_time', '0');

@@ -75,8 +75,8 @@ def index():
         })
 
     # Get process status from the database
-    telegram_running = db.get_parameter('telegram_process_running') == 'True'
     rss_running = db.get_parameter('rss_process_running') == 'True'
+    discord_running = db.get_parameter('discord_process_running') == 'True'
 
     # Get statistics for the dashboard
     stats = {
@@ -104,8 +104,8 @@ def index():
                            params=params,
                            queries=formatted_queries,
                            items=formatted_items,
-                           telegram_running=telegram_running,
                            rss_running=rss_running,
+                           discord_running=discord_running,
                            stats=stats)
 
 
@@ -233,16 +233,32 @@ def items():
 @app.route('/config')
 def config():
     params = db.get_all_parameters()
+    params.setdefault('discord_enabled', 'False')
+    params.setdefault('discord_token', '')
+    params.setdefault('discord_channel_id', '')
     return render_template('config.html', params=params)
 
 
 @app.route('/update_config', methods=['POST'])
 def update_config():
-    # Update Telegram parameters
-    telegram_enabled = 'telegram_enabled' in request.form
-    db.set_parameter('telegram_enabled', str(telegram_enabled))
-    db.set_parameter('telegram_token', request.form.get('telegram_token', ''))
-    db.set_parameter('telegram_chat_id', request.form.get('telegram_chat_id', ''))
+    # Ensure Discord parameters exist in case of upgrades
+    db.ensure_parameter('discord_enabled', 'False')
+    db.ensure_parameter('discord_token', '')
+    db.ensure_parameter('discord_channel_id', '')
+    db.ensure_parameter('discord_guild_id', '')
+    db.ensure_parameter('webshare_enabled', 'False')
+    db.ensure_parameter('webshare_username', '')
+    db.ensure_parameter('webshare_password', '')
+    db.ensure_parameter('webshare_host', 'proxy.webshare.io')
+    db.ensure_parameter('webshare_port', '80')
+    db.ensure_parameter('webshare_protocol', 'http')
+
+    # Update Discord parameters
+    discord_enabled = 'discord_enabled' in request.form
+    db.set_parameter('discord_enabled', str(discord_enabled))
+    db.set_parameter('discord_token', request.form.get('discord_token', ''))
+    db.set_parameter('discord_channel_id', request.form.get('discord_channel_id', ''))
+    db.set_parameter('discord_guild_id', request.form.get('discord_guild_id', ''))
 
     # Update RSS parameters
     rss_enabled = 'rss_enabled' in request.form
@@ -260,6 +276,14 @@ def update_config():
     db.set_parameter('proxy_list', request.form.get('proxy_list', ''))
     db.set_parameter('proxy_list_link', request.form.get('proxy_list_link', ''))
 
+    webshare_enabled = 'webshare_enabled' in request.form
+    db.set_parameter('webshare_enabled', str(webshare_enabled))
+    db.set_parameter('webshare_username', request.form.get('webshare_username', '').strip())
+    db.set_parameter('webshare_password', request.form.get('webshare_password', '').strip())
+    db.set_parameter('webshare_host', request.form.get('webshare_host', 'proxy.webshare.io') or 'proxy.webshare.io')
+    db.set_parameter('webshare_port', request.form.get('webshare_port', '80') or '80')
+    db.set_parameter('webshare_protocol', request.form.get('webshare_protocol', 'http') or 'http')
+
     # Reset proxy cache to force refresh on next use
     db.set_parameter('last_proxy_check_time', "1")
     logger.info("Proxy settings updated, cache reset")
@@ -270,29 +294,17 @@ def update_config():
 
 @app.route('/control/<process_name>/<action>', methods=['POST'])
 def control_process(process_name, action):
-    if process_name not in ['telegram', 'rss']:
+    db.ensure_parameter('discord_process_running', 'False')
+    db.ensure_parameter('discord_enabled', 'False')
+    db.ensure_parameter('discord_token', '')
+    db.ensure_parameter('discord_channel_id', '')
+    db.ensure_parameter('discord_guild_id', '')
+
+    if process_name not in ['rss', 'discord']:
         return jsonify({'status': 'error', 'message': 'Invalid process name'})
 
     if action == 'start':
-        if process_name == 'telegram':
-            # Check current status
-            if db.get_parameter('telegram_process_running') == 'True':
-                return jsonify({'status': 'warning', 'message': 'Telegram bot already running'})
-
-            # Check if telegram_token and telegram_chat_id are set
-            telegram_token = db.get_parameter('telegram_token')
-            telegram_chat_id = db.get_parameter('telegram_chat_id')
-            if not telegram_token or not telegram_chat_id:
-                return jsonify({'status': 'error',
-                                'message': 'Please set Telegram token and chat ID in the configuration panel before starting the Telegram process'})
-
-            # Update process status in the database
-            # The manager process will detect this and start the process
-            db.set_parameter('telegram_process_running', 'True')
-            logger.info("Telegram bot process start requested")
-            return jsonify({'status': 'success', 'message': 'Telegram bot start requested'})
-
-        elif process_name == 'rss':
+        if process_name == 'rss':
             # Check current status
             if db.get_parameter('rss_process_running') == 'True':
                 return jsonify({'status': 'warning', 'message': 'RSS feed already running'})
@@ -303,19 +315,26 @@ def control_process(process_name, action):
             logger.info("RSS feed process start requested")
             return jsonify({'status': 'success', 'message': 'RSS feed start requested'})
 
+        elif process_name == 'discord':
+            if db.get_parameter('discord_process_running') == 'True':
+                return jsonify({'status': 'warning', 'message': 'Discord bot already running'})
+
+            discord_token = db.get_parameter('discord_token')
+            discord_channel_id = db.get_parameter('discord_channel_id')
+            if not discord_token or not discord_channel_id:
+                return jsonify({'status': 'error',
+                                'message': 'Please set Discord token and channel ID in the configuration panel before starting the Discord process'})
+            try:
+                int(discord_channel_id)
+            except (TypeError, ValueError):
+                return jsonify({'status': 'error', 'message': 'Discord channel ID must be a valid integer.'})
+
+            db.set_parameter('discord_process_running', 'True')
+            logger.info("Discord bot process start requested")
+            return jsonify({'status': 'success', 'message': 'Discord bot start requested'})
+
     elif action == 'stop':
-        if process_name == 'telegram':
-            # Check current status
-            if db.get_parameter('telegram_process_running') != 'True':
-                return jsonify({'status': 'warning', 'message': 'Telegram bot not running'})
-
-            # Update process status in the database
-            # The manager process will detect this and stop the process
-            db.set_parameter('telegram_process_running', 'False')
-            logger.info("Telegram bot process stop requested")
-            return jsonify({'status': 'success', 'message': 'Telegram bot stop requested'})
-
-        elif process_name == 'rss':
+        if process_name == 'rss':
             # Check current status
             if db.get_parameter('rss_process_running') != 'True':
                 return jsonify({'status': 'warning', 'message': 'RSS feed not running'})
@@ -326,18 +345,26 @@ def control_process(process_name, action):
             logger.info("RSS feed process stop requested")
             return jsonify({'status': 'success', 'message': 'RSS feed stop requested'})
 
+        elif process_name == 'discord':
+            if db.get_parameter('discord_process_running') != 'True':
+                return jsonify({'status': 'warning', 'message': 'Discord bot not running'})
+
+            db.set_parameter('discord_process_running', 'False')
+            logger.info("Discord bot process stop requested")
+            return jsonify({'status': 'success', 'message': 'Discord bot stop requested'})
+
     return jsonify({'status': 'error', 'message': 'Invalid action'})
 
 
 @app.route('/control/status', methods=['GET'])
 def process_status():
     # Get process status from the database
-    telegram_running = db.get_parameter('telegram_process_running') == 'True'
     rss_running = db.get_parameter('rss_process_running') == 'True'
+    discord_running = db.get_parameter('discord_process_running') == 'True'
 
     return jsonify({
-        'telegram': telegram_running,
-        'rss': rss_running
+        'rss': rss_running,
+        'discord': discord_running
     })
 
 
