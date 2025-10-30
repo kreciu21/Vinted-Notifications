@@ -51,44 +51,7 @@
                         </div>
                     </div>
                     <div class="row mb-4">
-                        <div class="col-md-4">
-                            <div class="card h-100">
-                                <div class="card-header d-flex align-items-center">
-                                    <i class="bi bi-telegram me-2 text-info"></i>
-                                    <h5 class="card-title mb-0">Telegram Bot</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="mb-3">
-                                        <div class="form-check form-switch">
-                                            {% if params.telegram_enabled == 'True' %}
-                                            <input class="form-check-input" type="checkbox" id="telegram_enabled"
-                                                   name="telegram_enabled" checked>
-                                            {% else %}
-                                            <input class="form-check-input" type="checkbox" id="telegram_enabled"
-                                                   name="telegram_enabled">
-                                            {% endif %}
-                                            <label class="form-check-label" for="telegram_enabled">
-                                                Auto Start
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="telegram_token" class="form-label">Bot Token</label>
-                                        <input type="text" class="form-control" id="telegram_token"
-                                               name="telegram_token" value="{{ params.telegram_token }}">
-                                        <small class="form-text text-muted">Get this from BotFather</small>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="telegram_chat_id" class="form-label">Chat ID</label>
-                                        <input type="text" class="form-control" id="telegram_chat_id"
-                                               name="telegram_chat_id" value="{{ params.telegram_chat_id }}">
-                                        <small class="form-text text-muted">The chat ID where notifications will be
-                                            sent</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6 col-lg-4">
                             <div class="card h-100">
                                 <div class="card-header d-flex align-items-center">
                                     <i class="bi bi-discord me-2 text-info"></i>
@@ -130,7 +93,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6 col-lg-4">
                             <div class="card h-100">
                                 <div class="card-header d-flex align-items-center">
                                     <i class="bi bi-rss me-2 text-info"></i>
@@ -286,26 +249,7 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-4">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div>
-                                <h6 class="mb-0">Telegram Bot</h6>
-                                <small class="text-muted process-status" data-process="telegram">Checking
-                                    status...</small>
-                            </div>
-                            <div>
-                                <button class="btn btn-success process-control" data-process="telegram"
-                                        data-action="start">
-                                    <i class="bi bi-play-fill"></i> Start
-                                </button>
-                                <button class="btn btn-danger process-control" data-process="telegram"
-                                        data-action="stop">
-                                    <i class="bi bi-stop-fill"></i> Stop
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6 col-lg-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div>
                                 <h6 class="mb-0">Discord Bot</h6>
@@ -321,7 +265,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6 col-lg-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div>
                                 <h6 class="mb-0">RSS Feed</h6>
@@ -408,18 +352,12 @@
                 .then(response => response.json())
                 .then(data => {
                     // Update status text
-                    document.querySelector('.process-status[data-process="telegram"]').textContent =
-                        data.telegram ? 'Running' : 'Stopped';
                     document.querySelector('.process-status[data-process="discord"]').textContent =
                         data.discord ? 'Running' : 'Stopped';
                     document.querySelector('.process-status[data-process="rss"]').textContent =
                         data.rss ? 'Running' : 'Stopped';
 
                     // Update button visibility
-                    document.querySelector('.process-control[data-process="telegram"][data-action="start"]').style.display =
-                        data.telegram ? 'none' : 'inline-block';
-                    document.querySelector('.process-control[data-process="telegram"][data-action="stop"]').style.display =
-                        data.telegram ? 'inline-block' : 'none';
                     document.querySelector('.process-control[data-process="discord"][data-action="start"]').style.display =
                         data.discord ? 'none' : 'inline-block';
                     document.querySelector('.process-control[data-process="discord"][data-action="stop"]').style.display =

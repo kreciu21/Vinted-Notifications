@@ -13,14 +13,13 @@ when items matching your search criteria are posted.
 - **Multiple Search Queries**: Monitor multiple search terms simultaneously
 - **Country Filtering**: Filter items by seller's country of origin
 - **RSS Feed**: Subscribe to your search results with any RSS reader
-- **Telegram & Discord Integrations**: Receive notifications directly in your favourite chat apps
+- **Discord Integration**: Receive notifications directly in your Discord server
 
 ## 📦 Installation
 
 ### Prerequisites
 
 - Python 3.11 or higher
-- Telegram bot token (for Telegram notifications)
 - Discord bot token and target channel (for Discord notifications)
 
 ### Setup
@@ -68,23 +67,8 @@ Features available in the Web UI:
 - **Queries Management**: Add, remove, and view search queries
 - **Items Viewing**: Browse and filter items found by the application
 - **Allowlist Management**: Filter items by seller's country
-- **Configuration**: Set up Telegram bot, Discord bot, RSS feed, and other settings
+- **Configuration**: Set up the Discord bot, RSS feed, and other settings
 - **Logs**: View application logs directly from the web interface
-
-### Telegram Commands
-
-After configuring your Telegram bot in the Web UI, you can use the following commands:
-
-- `/add_query query` - Add a search query to monitor
-- `/remove_query query_number` - Remove a specific query
-- `/remove_query all` - Remove all queries
-- `/queries` - List all active queries
-- `/hello` - Check if the bot is working
-- `/create_allowlist` - Create a country allowlist (will slow down processing)
-- `/delete_allowlist` - Delete the country allowlist
-- `/add_country XX` - Add a country to the allowlist (ISO3166 format)
-- `/remove_country XX` - Remove a country from the allowlist
-- `/allowlist` - View the current allowlist
 
 ### Discord Setup
 
@@ -141,7 +125,7 @@ Poniższy poradnik opisuje działanie i konfigurację całego systemu – od pob
 
 1. **Proces monitorujący** co kilka sekund odpytuje Vinted, korzystając z biblioteki `pyVinted`. Zapytania i filtry (np. lista krajów) są przechowywane w bazie SQLite.
 2. **Warstwa proxy**: jeżeli w konfiguracji włączysz Webshare lub podasz własną listę proxy, każdy request do Vinted zostanie przez nie wysłany. Dzięki temu możesz ominąć limity IP.
-3. **Dispatcher** analizuje świeże ogłoszenia i przekazuje je do kolejek wtyczek (Discord, Telegram, RSS). Każda wtyczka działa w osobnym procesie, więc awaria jednego kanału nie zatrzyma reszty.
+3. **Dispatcher** analizuje świeże ogłoszenia i przekazuje je do kolejek wtyczek (Discord, RSS). Każda wtyczka działa w osobnym procesie, więc awaria jednego kanału nie zatrzyma reszty.
 4. **Wtyczka Discord** pobiera dane z kolejki, buduje bogate embed-y i publikuje je na wskazanym kanale. Jednocześnie nasłuchuje poleceń slash, aby pozwolić na zarządzanie zapytaniami prosto z Discorda.
 
 ### Przygotowanie bota Discord krok po kroku
@@ -195,7 +179,7 @@ Poniższy poradnik opisuje działanie i konfigurację całego systemu – od pob
    - Przed aktualizacją zachowaj plik `vinted_notifications.db` – przechowuje on zapytania, konfigurację i allowlisty.
    - Po pobraniu nowej wersji projektu wystarczy podmienić pliki i ponownie uruchomić aplikację.
 
-Masz gotowy system powiadomień Vinted, który działa w czasie rzeczywistym i korzysta z komend slash na Discordzie. Wszystkie elementy (proces monitorujący, proxy, bot Discord, RSS, Telegram) możesz kontrolować jednym interfejsem Web UI.
+Masz gotowy system powiadomień Vinted, który działa w czasie rzeczywistym i korzysta z komend slash na Discordzie. Wszystkie elementy (proces monitorujący, proxy, bot Discord, RSS) możesz kontrolować jednym interfejsem Web UI.
 
 ### Query Examples
 

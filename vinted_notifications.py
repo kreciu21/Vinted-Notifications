@@ -8,7 +8,6 @@ from web_ui_plugin.web_ui import web_ui_process
 logger = get_logger(__name__)
 
 # Global process references
-telegram_process = None
 rss_process = None
 discord_process = None
 scrape_process = None
@@ -45,7 +44,7 @@ def item_extractor(items_queue, new_items_queue):
         logger.info("Consumer process stopped")
 
 
-def dispatcher_function(input_queue, rss_queue, telegram_queue, discord_queue):
+def dispatcher_function(input_queue, rss_queue, discord_queue):
     logger.info("Dispatcher process started")
     try:
         while True:
@@ -53,28 +52,12 @@ def dispatcher_function(input_queue, rss_queue, telegram_queue, discord_queue):
             item = input_queue.get()
             # Send to RSS queue
             rss_queue.put(item)
-            #
-            telegram_queue.put(item)
             # Discord queue
             discord_queue.put(item)
     except (KeyboardInterrupt, SystemExit):
         logger.info("Dispatcher process stopped")
     except Exception as e:
         logger.error(f"Error in dispatcher process: {e}", exc_info=True)
-
-
-def telegram_bot_process(queue):
-    logger.info("Telegram bot process started")
-    import asyncio
-    try:
-        # Import LeRobot
-        from telegram_bot_plugin.telegram_bot import LeRobot
-        # The bot will run with app.run_polling() which is already in the module
-        asyncio.run(LeRobot(queue))
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Telegram bot process stopped")
-    except Exception as e:
-        logger.error(f"Error in telegram bot process: {e}", exc_info=True)
 
 
 def discord_bot_process(queue):
@@ -120,33 +103,11 @@ def check_refresh_delay(items_queue):
         logger.error(f"Error updating refresh delay: {e}", exc_info=True)
 
 
-def monitor_processes(items_queue, telegram_queue, rss_queue, discord_queue):
-    global telegram_process, rss_process, discord_process
+def monitor_processes(items_queue, rss_queue, discord_queue):
+    global rss_process, discord_process
 
     # Check if the query refresh delay has changed
     check_refresh_delay(items_queue)
-
-    ### TELEGRAM ###
-    # Check telegram process status
-    telegram_should_run = db.get_parameter('telegram_process_running') == 'True'
-    # Check if the telegram token and chat ID are set
-    telegram_token = db.get_parameter('telegram_token')
-    telegram_chat_id = db.get_parameter('telegram_chat_id')
-    if not telegram_token or not telegram_chat_id:
-        telegram_should_run = False
-    telegram_is_running = telegram_process is not None and telegram_process.is_alive()
-
-    if telegram_should_run and not telegram_is_running:
-        # Start telegram process
-        logger.info("Starting telegram bot process.")
-        telegram_process = multiprocessing.Process(target=telegram_bot_process, args=(telegram_queue,))
-        telegram_process.start()
-    elif not telegram_should_run and telegram_is_running:
-        # Stop telegram process
-        logger.info("Stopping telegram bot process.")
-        telegram_process.terminate()
-        telegram_process.join()
-        telegram_process = None
 
     ### RSS ###
     # Check RSS process status
@@ -185,9 +146,7 @@ def monitor_processes(items_queue, telegram_queue, rss_queue, discord_queue):
 
 
 def plugin_checker():
-    # Get telegram and rss enable status
-    telegram_enabled = db.get_parameter('telegram_enabled')
-    logger.info("Telegram enabled: {}".format(telegram_enabled))
+    # Get rss enable status
     rss_enabled = db.get_parameter('rss_enabled')
     logger.info("RSS enabled: {}".format(rss_enabled))
 
@@ -208,7 +167,6 @@ def plugin_checker():
     logger.info("Discord enabled: {}".format(discord_enabled))
 
     # Reset process status at startup
-    db.set_parameter('telegram_process_running', telegram_enabled)
     db.set_parameter('rss_process_running', rss_enabled)
     db.set_parameter('discord_process_running', discord_enabled)
 
@@ -241,7 +199,6 @@ if __name__ == "__main__":
     items_queue = multiprocessing.Queue()
     new_items_queue = multiprocessing.Queue()
     rss_queue = multiprocessing.Queue()
-    telegram_queue = multiprocessing.Queue()
     discord_queue = multiprocessing.Queue()
 
     # 1. Create and start the scrape process
@@ -258,14 +215,14 @@ if __name__ == "__main__":
     # 3. Create the dispatcher process
     # This process will handle the new items and send them to the enabled services
     dispatcher_process = multiprocessing.Process(target=dispatcher_function,
-                                                 args=(new_items_queue, rss_queue, telegram_queue, discord_queue,))
+                                                 args=(new_items_queue, rss_queue, discord_queue,))
     dispatcher_process.start()
 
     # 4. Set up a scheduler to monitor processes
     # This will check the process status in the database and start/stop processes as needed
     monitor_scheduler = BackgroundScheduler()
     monitor_scheduler.add_job(monitor_processes, 'interval', seconds=5,
-                              args=[items_queue, telegram_queue, rss_queue, discord_queue],
+                              args=[items_queue, rss_queue, discord_queue],
                               name="process_monitor")
     monitor_scheduler.start()
 
@@ -284,8 +241,6 @@ if __name__ == "__main__":
         web_ui_process_instance.join()
 
         # plugins
-        if telegram_process:
-            telegram_process.join()
         if rss_process:
             rss_process.join()
         if discord_process:
@@ -306,10 +261,6 @@ if __name__ == "__main__":
 
         # Plugins
 
-        if telegram_process and telegram_process.is_alive():
-            telegram_process.terminate()
-            # Set the process status in the database
-            db.set_parameter('telegram_process_running', 'False')
         if rss_process and rss_process.is_alive():
             rss_process.terminate()
             # Set the process status in the database
@@ -324,9 +275,6 @@ if __name__ == "__main__":
         dispatcher_process.join()
         web_ui_process_instance.join()
 
-        # Plugins
-        if telegram_process:
-            telegram_process.join()
         if rss_process:
             rss_process.join()
         if discord_process:

@@ -47,12 +47,7 @@ CREATE TABLE IF NOT EXISTS parameters
    ============================ */
 
 INSERT INTO parameters (key, value)
-VALUES ('telegram_enabled', 'False'),
-       ('telegram_token', ''),
-       ('telegram_chat_id', ''),
-       ('telegram_process_running', 'False'),
-
-       ('discord_enabled', 'False'),
+VALUES ('discord_enabled', 'False'),
        ('discord_token', ''),
        ('discord_channel_id', ''),
        ('discord_guild_id', ''),
